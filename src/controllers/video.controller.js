@@ -129,6 +129,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                 videoFile: 1,
                 title: 1,
                 description: 1,
+                views: 1,
                 createdAt: 1,
                 isPublished: 1,
                 duration: 1,
@@ -140,8 +141,18 @@ const getVideoById = asyncHandler(async (req, res) => {
             }
         }
     ])
+
+    if (!video) {
+        throw new ApiError(404, "video not found")
+    }
+
+    await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $inc: { views: 1 }
+        }, { new: true }
+    )
     // console.log(video);
-    // const video=await Video.findById(videoId)
 
     return res
         .status(200)
@@ -152,20 +163,20 @@ const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
 
-    const {title,description}=req.body
+    const { title, description } = req.body
     const thumbnailLocalPath = req.files?.thumbnail[0]?.path
 
-    if(!isValidObjectId(videoId)){
-        throw new ApiError(400,"Invalid video Id");
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video Id");
     }
 
-    const currentVideo=await Video.findOne(videoId)
+    const currentVideo = await Video.findOne(videoId)
 
-    if(currentVideo?.owner.toString()!=req.user?._id){
-        throw new ApiError(401,"Only admin can update video details")
+    if (currentVideo?.owner.toString() != req.user?._id) {
+        throw new ApiError(401, "Only admin can update video details")
     }
 
-    
+
 
 })
 
