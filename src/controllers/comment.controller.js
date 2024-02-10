@@ -22,7 +22,7 @@ const addComment = asyncHandler(async (req, res) => {
         throw new ApiError(400,"Content is required!.")
     }
 
-    const createComment=Comment.create({
+    const createComment=await Comment.create({
         content,
         video:videoId,
         owner:req.user?._id

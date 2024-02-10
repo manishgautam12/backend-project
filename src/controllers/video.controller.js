@@ -67,46 +67,105 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid video Id")
     }
 
-    const video=await Video.aggregate([
+    const video = await Video.aggregate([
         {
-            $match:{
-                _id:new mongoose.Types.ObjectId(videoId)
+            $match: {
+                _id: new mongoose.Types.ObjectId(videoId)
             }
         },
         {
-            $lookup:{
-               from:"users",
-               localField:"owner",
-               foreignField:"_id",
-               as:"owner" 
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes"
             }
         },
         {
-            $addFields:{
-                owner:{
-                    $first:"$owner"
+            $lookup: {
+                from: "comments",
+                localField: "_id",
+                foreignField: "video",
+                as: "comments",
+                pipeline: [
+                    {
+                        $project: {
+                            content: 1,
+                            owner: 1,
+                            createdAt: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            avatar: 1,
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                likesCount: {
+                    $size: "$likes"
+                },
+                commentsCount: {
+                    $size: "$comments"
                 }
             }
         },
         {
-            $project:{
-                title:1,
-                description:1,
-                "owner.username":1
+            $project: {
+                videoFile: 1,
+                title: 1,
+                description: 1,
+                createdAt: 1,
+                isPublished: 1,
+                duration: 1,
+                owner: 1,
+                owner: 1,
+                likesCount: 1,
+                commentsCount: 1,
+                comments: 1
             }
         }
     ])
-    console.log(video);
+    // console.log(video);
     // const video=await Video.findById(videoId)
 
     return res
         .status(200)
-        .json(new ApiResponse(200, "Video find by Id is successfully", video))
+        .json(new ApiResponse(200, video, "Video find by Id is successfully"))
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
+
+    const {title,description}=req.body
+    const thumbnailLocalPath = req.files?.thumbnail[0]?.path
+
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400,"Invalid video Id");
+    }
+
+    const currentVideo=await Video.findOne(videoId)
+
+    if(currentVideo?.owner.toString()!=req.user?._id){
+        throw new ApiError(401,"Only admin can update video details")
+    }
+
+    
 
 })
 
