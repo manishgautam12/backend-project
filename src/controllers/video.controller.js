@@ -161,23 +161,60 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
+    // console.log(videoId)
     //TODO: update video details like title, description, thumbnail
 
     const { title, description } = req.body
-    const thumbnailLocalPath = req.files?.thumbnail[0]?.path
+    // console.log(title,description)
+    const thumbnailLocalPath = req.file?.path
+    // console.log("Hello",thumbnailLocalPath)
+    let thumbnail
+    let oldImageUrl
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video Id");
     }
 
-    const currentVideo = await Video.findOne(videoId)
+    const currentVideo = await Video.findById(videoId)
 
     if (currentVideo?.owner.toString() != req.user?._id) {
         throw new ApiError(401, "Only admin can update video details")
     }
 
+    if (!title && !description && !thumbnailLocalPath) {
+        throw new ApiError(400, "Atleat one field pass to the update!..")
+    }
 
+    if (thumbnailLocalPath) {
+        const video = await Video.findById(videoId).select("thumbnail")
+        // console.log(video)
+        oldImageUrl = video.thumbnail
 
+        thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
+
+        if (!thumbnail) {
+            throw new ApiError(401, "Error while uploading thumbnail")
+        }
+    }
+
+    const updatedVideo = await Video.findByIdAndUpdate(videoId,
+        {
+            $set: {
+                title,
+                description,
+                thumbnail: thumbnail.url
+            }
+        }, { new: true }
+    )
+
+    if (!updatedVideo) {
+        throw new ApiError(500, "Failed to update video, Please try later")
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { updatedVideo }, "Video update successfully")
+    )
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
@@ -187,6 +224,33 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "invalid video Id")
+    }
+
+    const currentVideo = await Video.findById(videoId)
+
+    if (!currentVideo) {
+        throw new ApiError(404, "video not found")
+    }
+
+    if (currentVideo?.owner.toString() != req.user?._id) {
+        throw new ApiError(401, "Only admin can update video publish status")
+    }
+
+    const toggleVideoStatus = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $set: {
+                isPublished: !currentVideo?.isPublished
+            }
+        },
+        {
+            new: true
+        }
+    )
+    return res.status(200).json(new ApiResponse(200, { isPublished: toggleVideoStatus.isPublished }, "Video publish status update successfully"))
 })
 
 export {
