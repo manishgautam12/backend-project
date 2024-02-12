@@ -262,6 +262,8 @@ const updateVideo = asyncHandler(async (req, res) => {
     )
 })
 
+
+// panding with some error
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: delete video
