@@ -9,6 +9,51 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
     //TODO: get all videos based on query, sort, pagination
+
+    
+    // Define the aggregation pipeline stages based on the provided parameters
+    const pipeline = [];
+
+    // Match stage to filter based on user ID if provided
+    if (userId) {
+        pipeline.push({
+            $match: {
+                owner: mongoose.Types.ObjectId(userId)
+            }
+        });
+    }
+
+    // Match stage to filter based on a query if provided
+    if (query) {
+        pipeline.push({
+            $match: {
+                $or: [
+                    { title: { $regex: query, $options: 'i' } },
+                    { description: { $regex: query, $options: 'i' } }
+                ]
+            }
+        });
+    }
+
+    // Sort stage
+    const sortField = sortBy || 'createdAt';
+    const sortOrder = sortType === 'desc' ? -1 : 1;
+    pipeline.push({
+        $sort: {
+            [sortField]: sortOrder
+        }
+    });
+
+    // Pagination using mongoose-aggregate-paginate-v2
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit)
+    };
+
+    // Apply aggregation pipeline and pagination
+    const result = await Video.aggregatePaginate(pipeline, options);
+
+    return res.status(200).json(new ApiResponse(200,result,"all find successfully"));
 })
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -220,6 +265,23 @@ const updateVideo = asyncHandler(async (req, res) => {
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: delete video
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400,"Invalid video Id")
+    }
+
+   const currentVideo=await Video.findById(videoId)
+
+   if(currentVideo?.owner.toString()!=req.user?._id){
+    throw new ApiError(401,"Only admin can delete video")
+   }
+
+   const deletedVideo=await Video.findByIdAndDelete(videoId)
+
+   if(!deletedVideo){
+    throw new ApiError(400, "Failed to delete the video please try again");
+   }
+
+    return res.status(200).json(new ApiResponse(200,deletedVideo,"video delete successfuly!"))
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {

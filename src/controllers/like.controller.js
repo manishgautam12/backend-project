@@ -66,6 +66,45 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 
 const getLikedVideos = asyncHandler(async (req, res) => {
     //TODO: get all liked videos
+
+    // using this aggregation, we should receive only videos but we are receiveing comments also.
+    // how to solve this issue 
+    const likedVideos=await Like.aggregate([
+        {
+            $match:{
+                likedBy:new mongoose.Types.ObjectId(req.user?._id)
+            }
+        },
+        {
+            $lookup:{
+                from:"videos",
+                localField:"video",
+                foreignField:"_id",
+                as:"videos",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields:{
+                videoCount:{
+                    $size:"$videos"
+                }
+            }
+        }
+    ])
+
+    console.log(likedVideos)
+    
+    return res.status(200).json(new ApiResponse(200,likedVideos,"All liked video here!"))
 })
 
 export {
